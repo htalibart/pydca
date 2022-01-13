@@ -739,7 +739,7 @@ class MeanFieldDCA:
                 column_start = j * qm1
                 column_end = column_start + qm1
                 couplings_ij = self.__couplings[row_start:row_end, column_start:column_end]
-                couplings_ij = self.shift_couplings(couplings_ij) # now couplings_ij is a 2d numpy array
+                #couplings_ij = self.shift_couplings(couplings_ij) # now couplings_ij is a 2d numpy array
                 couplings_ij = np.reshape(couplings_ij, (qm1*qm1,))
                 pair_couplings_ij = pair, couplings_ij
                 couplings_ranked_by_dca_score.append(pair_couplings_ij)
