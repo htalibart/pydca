@@ -585,6 +585,9 @@ class MeanFieldDCA:
         return two_site_model_fields
 
 
+
+
+
     def compute_fields(self, couplings=None):
         """Computes the local fields of the global probability of sequence space.
 
@@ -633,6 +636,59 @@ class MeanFieldDCA:
         return fields
 
 
+    def compute_fields_in_array(self, couplings=None):
+        """Computes the local fields of the global probability of sequence space, outputs fields in (L,q) np array instead of dict
+
+        Parameters
+        ----------
+            self : MeanFieldDCA
+                An instance of MeanFieldDCA class
+
+            couplings : np.array
+                A 2d numpy array of the couplings. If not give, will be computed.
+
+        Returns
+        -------
+            fields : np.array((L,q))
+                Array of fields
+        """
+
+        if couplings is None:
+            reg_fi = self.get_reg_single_site_freqs()
+            reg_fij = self.get_reg_pair_site_freqs()
+            corr_mat = self.construct_corr_mat(reg_fi, reg_fij)
+            couplings = self.compute_couplings(corr_mat)
+        else:
+            reg_fi = self.get_reg_single_site_freqs()
+        q = self.__num_site_states
+        L = self.__sequences_len
+        fields = np.zeros((L,q))
+        logger.info('\n\tComputing local fields of the global probability function')
+        for i in range(self.__sequences_len):
+            pi = reg_fi[i]
+            piq = pi[-1]
+            sum = np.zeros((q-1, 1))
+            row_start = i * (q - 1)
+            row_end = row_start + (q - 1)
+            for j in range(self.__sequences_len):
+                if j != i:
+                    pj = reg_fi[j]
+                    col_start = j * (q - 1)
+                    col_end = col_start + (q - 1)
+                    couplings_ij = couplings[row_start:row_end, col_start:col_end]
+                    pj_col_vec = np.reshape(pj[:-1], (q-1, 1))
+                    sum += np.dot(couplings_ij, pj_col_vec)
+
+            fields_i = np.log(pi[:-1]/piq) - np.reshape(sum, (q-1, ))
+            fields_i = np.transpose(fields_i)
+            fields[i,:q-1] = fields_i
+        return fields
+
+
+
+
+
+
     def shift_couplings(self, couplings_ij):
         """Shifts the couplings value.
 
@@ -656,6 +712,44 @@ class MeanFieldDCA:
         av = np.mean(couplings_ij)
         couplings_ij = couplings_ij -  avx - avy + av
         return couplings_ij
+
+
+
+    def compute_params_in_arrays(self):
+        """ Computs fields and couplings, outputs np arrays (fields : (L,q), couplings : (L,L,q,q))
+
+        Parameters
+        ----------
+            self : MeanFieldDCA
+                An instanc of MeanFieldDCA class
+
+        Returns
+        -------
+            fields, couplings : tuple
+                A tuple of lists of fields and couplings.
+        """
+
+        reg_fi = self.get_reg_single_site_freqs()
+        reg_fij = self.get_reg_pair_site_freqs()
+        corr_mat = self.construct_corr_mat(reg_fi, reg_fij)
+        couplings = self.compute_couplings(corr_mat)
+
+        v = self.compute_fields_in_array(couplings=couplings)
+        L = self.__sequences_len
+        qm1 = self.__num_site_states - 1
+        w = np.zeros((L,L,self.__num_site_states,self.__num_site_states))
+        for i in range(L-1):
+            for j in range(i+1,L):
+                row_start = i * qm1
+                row_end = row_start + qm1
+                column_start = j * qm1
+                column_end = column_start + qm1
+                w[i,j,:qm1,:qm1] = couplings[row_start:row_end, column_start:column_end]
+                w[j,i] = np.transpose(couplings[i,j])
+        return v, w
+
+
+
 
 
     def compute_params(self, seqbackmapper=None, ranked_by=None, linear_dist=None, num_site_pairs=None):
